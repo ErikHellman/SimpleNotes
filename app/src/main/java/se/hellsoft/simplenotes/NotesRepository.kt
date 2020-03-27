@@ -10,6 +10,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import java.io.IOException
 
 interface NotesRepository {
     suspend fun fetchNotes(): List<NoteModel>
@@ -18,6 +19,7 @@ interface NotesRepository {
     suspend fun deleteNote(noteModel: NoteModel)
 }
 
+@Suppress("unused")
 class KtorNotesRepository : NotesRepository {
     companion object {
         const val BASE_URL = "https://api.notes-company.com/v1"
@@ -59,18 +61,25 @@ class KtorNotesRepository : NotesRepository {
     }
 }
 
+@Suppress("unused")
 class FakeNotesRepository : NotesRepository {
     private val notes = mutableListOf<NoteModel>()
 
     override suspend fun fetchNotes(): List<NoteModel> {
+        // Uncomment this to enable "fake" network errors
+        // throw IOException("This is a fake network error!")
         return notes;
     }
 
     override suspend fun fetchNote(id: Int): NoteModel? {
+        // Uncomment this to enable "fake" network errors
+        // throw IOException("This is a fake network error!")
         return notes.find { it.id == id }
     }
 
     override suspend fun saveNote(noteModel: NoteModel): NoteModel {
+        // Uncomment this to enable "fake" network errors
+        // throw IOException("This is a fake network error!")
         val index = notes.indexOfFirst { it.id == noteModel.id }
         if (index != -1) {
             notes[index] = noteModel
@@ -81,6 +90,8 @@ class FakeNotesRepository : NotesRepository {
     }
 
     override suspend fun deleteNote(noteModel: NoteModel) {
+        // Uncomment this to enable "fake" network errors
+        // throw IOException("This is a fake network error!")
         val index = notes.indexOfFirst { it.id == noteModel.id }
         if (index != -1) {
             notes.removeAt(index)

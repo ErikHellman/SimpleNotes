@@ -14,12 +14,13 @@ class NotesApplication : Application() {
         startKoin {
             androidLogger()
             androidContext(this@NotesApplication)
-            modules(fakesModule)
+            modules(appModule)
         }
     }
 }
 
-val fakesModule = module {
+val appModule = module {
+    // Use the FakeNotesRepository to fake our network requests
     single<NotesRepository> { FakeNotesRepository() }
     single { Room.databaseBuilder(androidContext(), NotesDatabase::class.java, "notes.db").fallbackToDestructiveMigration().build() }
     single { get<NotesDatabase>().notesDao() }
