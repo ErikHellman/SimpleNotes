@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/NoteListFragment">
+
+    <fragment
+        android:id="@+id/NoteListFragment"
+        android:name="se.hellsoft.simplenotes.NoteListFragment"
+        android:label="@string/note_list_label"
+        tools:layout="@layout/note_list_fragment">
+
+        <action
+            android:id="@+id/action_List_to_Details"
+            app:destination="@id/NoteDetailsFrament" />
+    </fragment>
+    <fragment
+        android:id="@+id/NoteDetailsFrament"
+        android:name="se.hellsoft.simplenotes.NoteDetailsFragment"
+        android:label="@string/note_details_label"
+        tools:layout="@layout/note_details_fragment">
+
+        <action
+            android:id="@+id/action_Details_to_List"
+            app:destination="@id/NoteListFragment" />
+        <argument
+            android:name="noteId"
+            app:argType="integer"
+            android:defaultValue="0" />
+    </fragment>
+</navigation>
