@@ -26,7 +26,6 @@
             app:destination="@id/NoteListFragment" />
         <argument
             android:name="noteId"
-            app:argType="integer"
-            android:defaultValue="0" />
+            app:argType="long" />
     </fragment>
 </navigation>

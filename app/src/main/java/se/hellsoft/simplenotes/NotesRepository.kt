@@ -10,14 +10,25 @@ import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import java.io.IOException
+import kotlinx.coroutines.*
+import kotlinx.serialization.UnstableDefault
+import kotlinx.serialization.builtins.list
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonConfiguration
+import okhttp3.Dispatcher
+import java.io.File
+import java.io.FileInputStream
+import java.util.concurrent.Executors
+import kotlin.coroutines.CoroutineContext
 
 interface NotesRepository {
-    suspend fun fetchNotes(): List<NoteModel>
-    suspend fun fetchNote(id: Int): NoteModel?
-    suspend fun saveNote(noteModel: NoteModel): NoteModel
-    suspend fun deleteNote(noteModel: NoteModel)
+    suspend fun fetchNotes(): List<ApiNoteModel>
+    suspend fun fetchNote(id: Long): ApiNoteModel?
+    suspend fun saveNote(noteModel: ApiNoteModel): ApiNoteModel
+    suspend fun deleteNote(id: Long)
 }
+
+class ServerError(val errorCode: Int) : Exception()
 
 @Suppress("unused")
 class KtorNotesRepository : NotesRepository {
@@ -31,21 +42,21 @@ class KtorNotesRepository : NotesRepository {
         }
     };
 
-    override suspend fun fetchNotes(): List<NoteModel> {
+    override suspend fun fetchNotes(): List<ApiNoteModel> {
         return httpClient.get {
             url("$BASE_URL/notes")
             contentType(ContentType.Application.Json)
         }
     }
 
-    override suspend fun fetchNote(id: Int): NoteModel? {
+    override suspend fun fetchNote(id: Long): ApiNoteModel? {
         return httpClient.get {
             url("$BASE_URL/notes/$id")
             contentType(ContentType.Application.Json)
         }
     }
 
-    override suspend fun saveNote(noteModel: NoteModel): NoteModel {
+    override suspend fun saveNote(noteModel: ApiNoteModel): ApiNoteModel {
         return httpClient.post {
             url("$BASE_URL/notes/${noteModel.id}")
             contentType(ContentType.Application.Json)
@@ -53,48 +64,75 @@ class KtorNotesRepository : NotesRepository {
         }
     }
 
-    override suspend fun deleteNote(noteModel: NoteModel) {
+    override suspend fun deleteNote(id: Long) {
         httpClient.delete<Unit> {
-            url("$BASE_URL/notes/${noteModel.id}")
+            url("$BASE_URL/notes/${id}")
             contentType(ContentType.Application.Json)
         }
     }
 }
 
-@Suppress("unused")
-class FakeNotesRepository : NotesRepository {
-    private val notes = mutableListOf<NoteModel>()
+/**
+ * A fake API implementation that works on a local JSON file.
+ */
+@ExperimentalStdlibApi
+class FakeNotesRepository(private val jsonFile: File) : NotesRepository, CoroutineScope {
+    private val serializer = ApiNoteModel.serializer()
+    private val json = Json(JsonConfiguration.Stable)
 
-    override suspend fun fetchNotes(): List<NoteModel> {
-        // Uncomment this to enable "fake" network errors
-        // throw IOException("This is a fake network error!")
-        return notes;
+    override suspend fun fetchNotes(): List<ApiNoteModel> = coroutineScope {
+        if (!jsonFile.exists()) {
+            return@coroutineScope emptyList<ApiNoteModel>()
+        }
+        val jsonData = jsonFile.readText();
+        return@coroutineScope json.fromJson(serializer.list, json.parseJson(jsonData))
     }
 
-    override suspend fun fetchNote(id: Int): NoteModel? {
-        // Uncomment this to enable "fake" network errors
-        // throw IOException("This is a fake network error!")
-        return notes.find { it.id == id }
+    override suspend fun fetchNote(id: Long): ApiNoteModel? = coroutineScope {
+        return@coroutineScope fetchNotes().find { it.id == id }
     }
 
-    override suspend fun saveNote(noteModel: NoteModel): NoteModel {
-        // Uncomment this to enable "fake" network errors
-        // throw IOException("This is a fake network error!")
+    override suspend fun saveNote(noteModel: ApiNoteModel): ApiNoteModel = coroutineScope {
+        val notes = fetchNotes().toMutableList()
         val index = notes.indexOfFirst { it.id == noteModel.id }
-        if (index != -1) {
+        return@coroutineScope if (index > -1) {
             notes[index] = noteModel
+            writeToFile(notes)
+            noteModel
         } else {
-            notes += noteModel
+            val nextId = nextId(notes)
+            val newModel = noteModel.copy(id = nextId)
+            notes += newModel
+            writeToFile(notes)
+            newModel
         }
-        return noteModel
     }
 
-    override suspend fun deleteNote(noteModel: NoteModel) {
-        // Uncomment this to enable "fake" network errors
-        // throw IOException("This is a fake network error!")
-        val index = notes.indexOfFirst { it.id == noteModel.id }
-        if (index != -1) {
-            notes.removeAt(index)
+    override suspend fun deleteNote(id: Long) = coroutineScope {
+        val notes = fetchNotes().toMutableList().toMutableList()
+        notes.removeIf { it.id == id }
+        writeToFile(notes)
+        return@coroutineScope
+    }
+
+    private fun nextId(notes: List<ApiNoteModel>): Long {
+        val latest = notes.maxBy { it.id }
+        return if (latest != null) {
+            latest.id + 1L
+        } else {
+            1L
         }
     }
+
+    private fun writeToFile(notes: List<ApiNoteModel>) {
+        val jsonData = json.stringify(serializer.list, notes)
+        if (!jsonFile.exists()) {
+            jsonFile.createNewFile()
+        }
+        jsonFile.writeText(jsonData)
+    }
+
+    private val _coroutineContext = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    override val coroutineContext: CoroutineContext
+        get() = _coroutineContext
 }

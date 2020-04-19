@@ -6,13 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
-import androidx.navigation.Navigation
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import androidx.work.WorkManager
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import se.hellsoft.simplenotes.databinding.NoteItemBinding
 import se.hellsoft.simplenotes.databinding.NoteListFragmentBinding
+import timber.log.Timber
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -41,6 +42,12 @@ class NoteListFragment : Fragment() {
         binding.fab.setOnClickListener {
             val action = NoteListFragmentDirections.actionListToDetails(0)
             it.findNavController().navigate(action)
+        }
+
+        binding.swipeToRefresh.setOnRefreshListener {
+            Timber.d("Reschedule notes sync!")
+            SyncNotesWorker.syncNotes(WorkManager.getInstance(requireContext()))
+            binding.swipeToRefresh.isRefreshing = false
         }
     }
 

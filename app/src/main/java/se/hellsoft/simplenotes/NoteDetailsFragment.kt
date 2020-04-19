@@ -30,7 +30,8 @@ class NoteDetailsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         lifecycleScope.launchWhenResumed {
-            noteModel = viewModel.loadNotes(args.noteId) ?: NoteModel(0, "", "")
+            noteModel =
+                viewModel.loadNote(args.noteId) ?: NoteModel(0, 0L, "", "", NoteModel.State.Created)
             binding.titleText.setText(noteModel.title)
             binding.contentText.setText(noteModel.content)
         }
@@ -44,6 +45,14 @@ class NoteDetailsFragment : Fragment() {
             }
             findNavController().popBackStack()
         }
+
+        binding.deleteButton.setOnClickListener {
+            lifecycleScope.launch {
+                viewModel.deleteNote(noteModel)
+                findNavController().popBackStack()
+            }
+        }
+
         binding.cancelButton.setOnClickListener { findNavController().popBackStack() }
     }
 }
